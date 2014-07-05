@@ -1,5 +1,12 @@
 import requests
 from django.db import models, transaction
+from django.utils.checksums import luhn
+
+# credit card IIN lookup module
+#	cf. http://bit.ly/1vLnF49
+#	cf. http://bit.ly/VsQGqr for .filter()-like service
+#		we can use wildcards in IIN lookup: try 546*
+# includes a wrapper for credit card number validation via Luhn's checksum
 
 class IINInfoManager(models.Manager):
 	class RateLimitExceeded(Exception):
@@ -16,9 +23,13 @@ class IINInfoManager(models.Manager):
 	#iin is a string literal of length six
 	def fetch_iin_query(self, iin=None):
 		if not (isinstance(iin, str) and len(iin) == 6):
-			raise IINInfo.DoesNotExist
+			raise ValueError('IIN must be a six-digit numeric string, eg. \'123456\'')
+		try:
+			int(iin)
+		except ValueError:
+			raise ValueError('IIN must be a six-digit numeric string, eg. \'123456\'')
 
-		r = requests.get('http://www.binlist.net/json/' % iin)
+		r = requests.get('http://www.binlist.net/json/%s' % iin)
 
 		if r.status_code == 404:
 			raise IINInfo.DoesNotExist
@@ -29,7 +40,7 @@ class IINInfoManager(models.Manager):
 		iin_info['iin'] = resp['bin']
 		iin_info['card_brand'] = resp['brand'][0:127]
 		iin_info['card_sub_brand'] = resp['sub_brand'][0:127]
-		iin_info['card_type'] = 'C' if resp['type'] == 'CREDIT' else 'D'
+		iin_info['card_type'] = 'C' if resp['card_type'] == 'CREDIT' else 'D'
 		iin_info['card_category'] = resp['card_category'][0:127]
 		iin_info['country_code'] = resp['country_code']
 		iin_info['country_name'] = resp['country_name'][0:255]
@@ -52,3 +63,7 @@ class IINInfo(models.Model):
 	country_code = models.CharField(max_length=2, help_text='Country code, as per ISO3166-1 alpha2 designation', db_index=True)
 	country_name = models.CharField(max_length=255, help_text='Fully qualified country name')
 	bank_name = models.CharField(max_length=255, help_text='Issuing banking institution name')
+
+	@property
+	def bin(self):
+		return(self.iin)

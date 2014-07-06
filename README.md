@@ -3,7 +3,7 @@ django_iin_lookup
 
 IIN / BIN lookup for credit and debit cards
 
-`GET` request wrapper for http://binlist.net, with DB acting as a caching backend to avoid duplicate GET requests.
+`GET` request wrapper for http://binlist.net, with DB acting as a caching backend to avoid duplicate `GET` requests.
 
 Installation Requirements
 ----
